@@ -30,4 +30,5 @@ app.get('/health', (req, res) => {
 // Start server
 app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`📱 App URL: https://telecel-upgrade-production.up.railway.app`);
 });
