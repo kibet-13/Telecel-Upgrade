@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: telecel-upgrade
+    runtime: node
+    repo: https://github.com/kibet-13/Telecel-Upgrade
+    plan: free
+    envVars:
+      - key: PORT
+        value: 3000
+    buildCommand: npm install
+    startCommand: node server.js
